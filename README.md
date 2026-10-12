@@ -166,42 +166,74 @@ python -m unittest discover -s tests -v
 
 The tests check the feature allowlist, the notebook integration, clean notebook state, and that no data files or machine-specific paths are committed.
 
-## 🔧 Recommended Hyperparameters
-
-Defaults in the released notebooks:
-
-| Parameter | HF | ADRD | Readmission (IV) | Readmission (III) |
-|---|---:|---:|---:|---:|
-| Parallel agents (`num_agents` / `NUM_PARALLEL_AGENTS`) | `2` | `2` | `3` | `3` |
-| Specialist chart review (`use_chart_review` / `USE_CHART_REVIEW`) | `True` | `True` | `True` | `False` |
-| LLM temperature | `0.0` | `0.0` | `0.0` | `0.0` |
-| $\alpha$ (Brier weight) | `0.05` | `0.05` | `0.05` | `0.05` |
-| $\beta_{\text{spe}}$, $\beta_{\text{par}}$ (KL weights) | `0.05` | `0.05` | `0.05` | `0.05` |
-| XGBoost `n_estimators` / `max_depth` / `learning_rate` | `300` / `4` / `0.03` | `300` / `4` / `0.03` | `300` / `4` / `0.03` | `300` / `4` / `0.03` |
-| XGBoost `subsample` / `colsample_bytree` | `0.8` / `0.8` | `0.8` / `0.8` | `0.8` / `0.8` | `0.8` / `0.8` |
-| Random seed | `1` | `1` | `1` | `1` |
-
-The search spaces are listed in the appendix of the paper (Table "Experimental settings and hyperparameters").
-
 ## 📊 Results
 
-C²Align with the Qwen3-Max backbone (Table 1 of the paper):
+Results depend on the cohort construction and the patient-level split, so all methods below are evaluated on the same test patients. LLM-based methods use the Qwen3-Max backbone (Table 1 of the paper). *LLM + post-hoc calibration* reports the best of Platt scaling, isotonic regression, and BBQ; *MAS + trajectory calibration* is agentic confidence calibration. For BS and ECE, the gain is a reduction.
 
-| Task | AUROC ↑ | AUPRC ↑ | P@S95 ↑ | BS ↓ | ECE ↓ | Notes |
-|---|---:|---:|---:|---:|---:|---|
-| HF | 0.9927 | 0.9940 | 0.9530 | 0.0336 | 0.0294 | BS 26.80% and ECE 31.31% lower than the strongest baseline |
-| ADRD | 0.9962 | 0.9971 | 1.0000 | 0.0210 | 0.0273 | BS 49.03% lower than the strongest baseline |
-| Readmission (IV) | 0.7128 | 0.7098 | 0.6076 | 0.2210 | 0.1214 | AUROC +0.0734 over the strongest baseline |
-| Readmission (III) | 0.6674 | 0.4068 | 0.3598 | 0.1851 | 0.0702 | ECE 15.42% lower than the strongest baseline |
+### HF diagnosis and phenotyping (MIMIC-IV; 973 patients, 730 train / 243 test)
 
-Please refer to the paper for the full comparison with LR, XGBoost, single LLMs, sequential and parallel multi-agent systems, post-hoc calibration, and trajectory calibration, as well as other LLM backbones and the external TJH cohort.
+| Method | AUROC ↑ | AUPRC ↑ | P@S95 ↑ | BS ↓ | ECE ↓ |
+|---|---:|---:|---:|---:|---:|
+| LR | 0.9191 | 0.9250 | 0.6920 | 0.1029 | 0.0498 |
+| XGBoost | 0.9157 | 0.9240 | 0.6415 | 0.0957 | 0.0528 |
+| LLM | 0.9386 | 0.9069 | 0.8967 | 0.0670 | 0.0535 |
+| LLM + post-hoc calibration | 0.9386 | 0.9069 | 0.8967 | 0.0689 | 0.0545 |
+| MAS-Sequential | 0.8619 | 0.7943 | 0.7977 | 0.1345 | 0.1059 |
+| MAS-Parallel | 0.9614 | 0.9449 | 0.9130 | 0.0657 | 0.0547 |
+| MAS + trajectory calibration | 0.9806 | 0.9865 | 0.9034 | 0.0459 | 0.0428 |
+| **C²Align (ours)** | **0.9927** | **0.9940** | **0.9530** | **0.0336** | **0.0294** |
+| *Gain over the strongest baseline* | *+0.0121 (1.23%)* | *+0.0075 (0.76%)* | *+0.0400 (4.38%)* | *+0.0123 (26.80%)* | *+0.0134 (31.31%)* |
+
+### ADRD diagnosis and phenotyping (MIMIC-IV; 950 patients, 712 train / 238 test)
+
+| Method | AUROC ↑ | AUPRC ↑ | P@S95 ↑ | BS ↓ | ECE ↓ |
+|---|---:|---:|---:|---:|---:|
+| LR | 0.9357 | 0.9589 | 0.6482 | 0.0912 | 0.0464 |
+| XGBoost | 0.9372 | 0.9562 | 0.7247 | 0.0901 | 0.0569 |
+| LLM | 0.9680 | 0.9707 | 0.8944 | 0.0523 | 0.0868 |
+| LLM + post-hoc calibration | 0.9680 | 0.9707 | 0.8944 | 0.0412 | 0.0280 |
+| MAS-Sequential | 0.9501 | 0.9523 | 0.8567 | 0.1006 | 0.0821 |
+| MAS-Parallel | 0.9727 | 0.9747 | 0.9604 | 0.0505 | 0.0841 |
+| MAS + trajectory calibration | 0.9804 | 0.9855 | 0.8837 | 0.0641 | 0.0900 |
+| **C²Align (ours)** | **0.9962** | **0.9971** | **1.0000** | **0.0210** | **0.0273** |
+| *Gain over the strongest baseline* | *+0.0158 (1.61%)* | *+0.0116 (1.18%)* | *+0.0396 (4.12%)* | *+0.0202 (49.03%)* | *+0.0007 (2.50%)* |
+
+### 30-day readmission, Readmission (IV) (MIMIC-IV; 1,000 patients, 800 train / 200 test)
+
+| Method | AUROC ↑ | AUPRC ↑ | P@S95 ↑ | BS ↓ | ECE ↓ |
+|---|---:|---:|---:|---:|---:|
+| LR | 0.5540 | 0.5821 | 0.5360 | 0.4016 | 0.3831 |
+| XGBoost | 0.6394 | 0.6344 | 0.5505 | 0.2638 | 0.1657 |
+| LLM | 0.5788 | 0.6058 | 0.5285 | 0.3533 | 0.3220 |
+| LLM + post-hoc calibration | 0.4212 | 0.5317 | 0.5280 | 0.2509 | 0.1400 |
+| MAS-Sequential | 0.5842 | 0.6250 | 0.5285 | 0.3691 | 0.3358 |
+| MAS-Parallel | 0.5874 | 0.6439 | 0.5285 | 0.3477 | 0.3048 |
+| MAS + trajectory calibration | 0.5805 | 0.6023 | 0.5505 | 0.2456 | 0.1304 |
+| **C²Align (ours)** | **0.7128** | **0.7098** | **0.6076** | **0.2210** | **0.1214** |
+| *Gain over the strongest baseline* | *+0.0734 (11.48%)* | *+0.0659 (10.23%)* | *+0.0571 (10.37%)* | *+0.0246 (10.02%)* | *+0.0090 (6.90%)* |
+
+### 30-day readmission, Readmission (III) (MIMIC-III; 1,000 patients, 800 train / 200 test)
+
+| Method | AUROC ↑ | AUPRC ↑ | P@S95 ↑ | BS ↓ | ECE ↓ |
+|---|---:|---:|---:|---:|---:|
+| LR | 0.5240 | 0.3126 | 0.2803 | 0.3277 | 0.3100 |
+| XGBoost | 0.5864 | 0.3255 | 0.3064 | 0.2467 | 0.1802 |
+| LLM | 0.6331 | 0.3675 | 0.3444 | 0.3670 | 0.4012 |
+| LLM + post-hoc calibration | 0.6331 | 0.3675 | 0.3444 | 0.1882 | 0.0830 |
+| MAS-Sequential | 0.6420 | 0.3809 | 0.3352 | 0.3875 | 0.4228 |
+| MAS-Parallel | 0.6414 | 0.3738 | 0.3408 | 0.3833 | 0.4184 |
+| MAS + trajectory calibration | 0.4583 | 0.2643 | 0.2775 | 0.2216 | 0.1131 |
+| **C²Align (ours)** | **0.6674** | **0.4068** | **0.3598** | **0.1851** | **0.0702** |
+| *Gain over the strongest baseline* | *+0.0254 (3.96%)* | *+0.0259 (6.80%)* | *+0.0154 (4.47%)* | *+0.0031 (1.65%)* | *+0.0128 (15.42%)* |
+
+Please refer to the paper for results with other LLM backbones (ChatGPT-4o, Gemini-2.5, DeepSeek-V4, LLaMA-3.1-8B), the ablation study, and the external TJH cohort.
 
 ## 🧠 Method Overview
 
 C²Align runs in six steps:
 
 1. **Parallel branch** (frozen): $M$ independent, homogeneous agents each return a probability, and their average gives $p_{\text{par}}$ (`run_parallel_branch`).
-2. **Specialist branch** (frozen): symptom, medication/intervention, and risk agents extract fixed task indicators $x_{\text{spe}}$; a diagnosis agent, optionally followed by a chart-review agent, returns $p_{\text{spe}}$ (`run_specialist_branch`).
+2. **Specialist branch** (frozen): symptom, medication/intervention, and risk agents extract fixed task indicators $x_{\text{spe}}$; a diagnosis agent followed by a chart-review agent returns $p_{\text{spe}}$ (`run_specialist_branch`).
 3. **Join**: both outputs are joined with structured covariates by patient ID and schema-validated (`align_branch_outputs`).
 4. **Allowlist**: a task-level allowlist builds the feature vector $x_{\text{struct}} \oplus x_{\text{spe}} \oplus p_{\text{par}} \oplus p_{\text{spe}}$ (`MODEL_FEATURE_COLUMNS`, `c2align_feature_policy.py`).
 5. **Train**: only the downstream XGBoost model is trained, with the MoCAL loss as a custom objective (`get_custom_xgb_obj_bin_dual_kl`):
